@@ -6,7 +6,7 @@ import geopandas as gpd
 from shapely.geometry import Point
 
 # 1) Load data (robust path handling)
-csv_path = Path("E:/naveen/vitc/project/House-Price-Prediction/kc_house_data.csv")
+csv_path = Path("kc_house_data.csv")
 df = pd.read_csv(csv_path)
 
 # 2) Build GeoDataFrame in WGS84 (lon/lat)
