@@ -5,7 +5,7 @@ import pandas as pd
 import geopandas as gpd
 from shapely.geometry import Point
 
-# 1) Load data (robust path handling)
+# 1) Load data
 csv_path = Path("kc_house_data.csv")
 df = pd.read_csv(csv_path)
 
@@ -69,7 +69,6 @@ X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=42)
 # 9) Fit and evaluate with MAE + RMSE (version-safe)
 from sklearn.metrics import mean_absolute_error
 
-# Prefer new RMSE API when available; otherwise sqrt(MSE) without 'squared' kwarg
 try:
     from sklearn.metrics import root_mean_squared_error
     USE_NEW_RMSE = True
@@ -91,3 +90,25 @@ else:
     rmse = np.sqrt(mean_squared_error(y_te, preds))
 
 print(f"MAE: {mae:.3f} | RMSE: {rmse:.3f}")
+
+# 10) Save the trained Pipeline
+from joblib import dump
+dump(model, "kc_price_model.joblib")
+print("Saved kc_price_model.joblib")
+
+# 11) Spatial cross-validation with BlockKFold (lon/lat in degrees)
+import numpy as np
+import verde as vd
+from sklearn.model_selection import cross_val_score
+
+coords = np.c_[df["long"].values, df["lat"].values]  # 2 columns: [lon, lat]
+cv = vd.BlockKFold(spacing=0.2, n_splits=5, shuffle=True, random_state=42)  # smaller spacing => more blocks
+
+scores = cross_val_score(
+    model,
+    X, y,
+    cv=cv.split(coords),                 # folds from coordinates
+    scoring="neg_root_mean_squared_error"
+)
+print("Spatial-CV RMSE:", -scores.mean(), "+/-", scores.std())
+
