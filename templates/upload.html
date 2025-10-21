@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>📊 Batch Prediction</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" />
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 3rem 0;
+        }
+        .card {
+            border: none;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+            border-radius: 1rem;
+        }
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 1rem;
+            padding: 3rem;
+            text-align: center;
+            background: #f8f9ff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .upload-area:hover {
+            border-color: #5a6fd8;
+            background: #f0f2ff;
+        }
+        .upload-area.dragover {
+            border-color: #28a745;
+            background: #f0fff4;
+        }
+        .form-control {
+            border-radius: 0.5rem;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 0.5rem;
+            padding: 0.75rem 2rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0.5rem 1rem rgba(102, 126, 234, 0.4);
+        }
+        .btn-outline-secondary {
+            border-radius: 0.5rem;
+            padding: 0.75rem 2rem;
+            font-weight: 600;
+        }
+        .feature-icon {
+            font-size: 1.5rem;
+            color: #667eea;
+            margin-right: 0.5rem;
+        }
+        .section-title {
+            color: #2c3e50;
+            font-weight: 700;
+            margin-bottom: 2rem;
+        }
+        .upload-icon {
+            font-size: 4rem;
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        .info-card {
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+            border-radius: 1rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-8">
+                    <h1 class="display-4 fw-bold mb-3">
+                        <i class="bi bi-upload"></i>
+                        Batch Prediction
+                    </h1>
+                    <p class="lead mb-4">Upload a CSV file with multiple properties to get predictions for all of them at once.</p>
+                </div>
+                <div class="col-lg-4 text-center">
+                    <i class="bi bi-file-earmark-spreadsheet" style="font-size: 5rem; opacity: 0.8;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container py-5">
+        <!-- Navigation -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h2 class="section-title mb-0">
+                                <i class="bi bi-cloud-upload feature-icon"></i>
+                                Upload CSV File
+                            </h2>
+                            <a href="/" class="btn btn-outline-secondary">
+                                <i class="bi bi-calculator"></i> Single Prediction
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Form -->
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-body">
+                        <form action="/upload" method="post" enctype="multipart/form-data" id="uploadForm">
+                            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                                <div class="upload-icon">
+                                    <i class="bi bi-cloud-upload"></i>
+                                </div>
+                                <h4 class="mb-3">Drop your CSV file here or click to browse</h4>
+                                <p class="text-muted mb-3">Supports .csv files with property data</p>
+                                <input type="file" id="fileInput" name="file" accept=".csv" class="d-none" required />
+                                <div class="btn btn-outline-primary">
+                                    <i class="bi bi-folder2-open"></i> Choose File
+                                </div>
+                            </div>
+                            <div class="mt-4 text-center">
+                                <button class="btn btn-primary btn-lg me-3" type="submit" id="submitBtn" disabled>
+                                    <i class="bi bi-calculator"></i> Predict All Properties
+                                </button>
+                                <a href="/" class="btn btn-outline-secondary btn-lg">
+                                    <i class="bi bi-arrow-left"></i> Back to Single
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                <div class="info-card">
+                    <h5 class="text-primary mb-3">
+                        <i class="bi bi-info-circle"></i> CSV Format Requirements
+                    </h5>
+                    <p class="mb-3">Your CSV file should contain these columns:</p>
+                    <ul class="list-unstyled small">
+                        <li><i class="bi bi-check-circle text-success"></i> bedrooms</li>
+                        <li><i class="bi bi-check-circle text-success"></i> bathrooms</li>
+                        <li><i class="bi bi-check-circle text-success"></i> sqft_living</li>
+                        <li><i class="bi bi-check-circle text-success"></i> sqft_lot</li>
+                        <li><i class="bi bi-check-circle text-success"></i> floors</li>
+                        <li><i class="bi bi-check-circle text-success"></i> waterfront</li>
+                        <li><i class="bi bi-check-circle text-success"></i> view</li>
+                        <li><i class="bi bi-check-circle text-success"></i> condition</li>
+                        <li><i class="bi bi-check-circle text-success"></i> grade</li>
+                        <li><i class="bi bi-check-circle text-success"></i> sqft_above</li>
+                        <li><i class="bi bi-check-circle text-success"></i> sqft_basement</li>
+                        <li><i class="bi bi-check-circle text-success"></i> yr_built</li>
+                        <li><i class="bi bi-check-circle text-success"></i> yr_renovated</li>
+                        <li><i class="bi bi-check-circle text-success"></i> lat</li>
+                        <li><i class="bi bi-check-circle text-success"></i> long</li>
+                        <li><i class="bi bi-check-circle text-success"></i> sqft_living15</li>
+                        <li><i class="bi bi-check-circle text-success"></i> sqft_lot15</li>
+                    </ul>
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="bi bi-lightbulb"></i>
+                            <strong>Note:</strong> The 'price' column is not needed as we'll predict it for you.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.querySelector('.upload-area');
+        const submitBtn = document.getElementById('submitBtn');
+
+        // File input change handler
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                const fileName = e.target.files[0].name;
+                uploadArea.innerHTML = `
+                    <div class="upload-icon text-success">
+                        <i class="bi bi-check-circle-fill"></i>
+                    </div>
+                    <h4 class="mb-3 text-success">File Selected!</h4>
+                    <p class="text-muted mb-3">${fileName}</p>
+                    <div class="btn btn-outline-success">
+                        <i class="bi bi-file-earmark-check"></i> Ready to Upload
+                    </div>
+                `;
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Drag and drop handlers
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                fileInput.dispatchEvent(new Event('change'));
+            }
+        });
+    </script>
+</body>
+</html>
+
+

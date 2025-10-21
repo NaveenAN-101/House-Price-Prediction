@@ -1,114 +1,85 @@
 # run.py
 
 from pathlib import Path
+from typing import Tuple
+
+import numpy as pd_alias  # alias only to keep imports stable before refactor users; not used directly
 import pandas as pd
-import geopandas as gpd
-from shapely.geometry import Point
 
-# 1) Load data
-csv_path = Path("kc_house_data.csv")
-df = pd.read_csv(csv_path)
-
-# 2) Build GeoDataFrame in WGS84 (lon/lat)
-gdf = gpd.GeoDataFrame(
-    df.copy(),
-    geometry=gpd.points_from_xy(df["long"], df["lat"]),
-    crs="EPSG:4326"
-)
-
-# 3) Reproject to a metric CRS (UTM Zone 10N for Seattle area)
-gdf_m = gdf.to_crs(32610)
-
-# 4) Distance to downtown Seattle (approx point), in meters
-seattle_center = gpd.GeoSeries([Point(-122.3321, 47.6062)], crs="EPSG:4326").to_crs(32610).iloc[0]
-gdf_m["dist_to_center_m"] = gdf_m.geometry.distance(seattle_center)
-
-# 5) Back to a flat DataFrame for ML
-df = pd.DataFrame(gdf_m.drop(columns="geometry"))
-
-# 6) Define features/target
-target = "price"
-num_cols = [
-    "bedrooms", "bathrooms", "sqft_living", "sqft_lot", "floors", "waterfront",
-    "view", "condition", "grade", "sqft_above", "sqft_basement", "yr_built",
-    "yr_renovated", "lat", "long", "sqft_living15", "sqft_lot15", "dist_to_center_m"
-]
-X = df[num_cols].copy()
-y = df[target].copy()
-
-# 7) Preprocessing + model pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-from xgboost import XGBRegressor
-
-pre = ColumnTransformer(
-    transformers=[("num", StandardScaler(), num_cols)],
-    remainder="drop"
-)
-
-model = Pipeline(
-    steps=[
-        ("pre", pre),
-        ("xgb", XGBRegressor(
-            n_estimators=600,
-            learning_rate=0.05,
-            max_depth=6,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            random_state=42,
-            tree_method="hist"
-        ))
-    ]
-)
-
-# 8) Train/test split
-X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=42)
-
-# 9) Fit and evaluate with MAE + RMSE (version-safe)
+from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import mean_absolute_error
-
-try:
-    from sklearn.metrics import root_mean_squared_error
-    USE_NEW_RMSE = True
-except ImportError:
-    from sklearn.metrics import mean_squared_error
-    import numpy as np
-    USE_NEW_RMSE = False
-
-model.fit(X_tr, y_tr)
-preds = model.predict(X_te)
-
-mae = mean_absolute_error(y_te, preds)
-if USE_NEW_RMSE:
-    from sklearn.metrics import root_mean_squared_error
-    rmse = root_mean_squared_error(y_te, preds)
-else:
-    from sklearn.metrics import mean_squared_error
-    import numpy as np
-    rmse = np.sqrt(mean_squared_error(y_te, preds))
-
-print(f"MAE: {mae:.3f} | RMSE: {rmse:.3f}")
-
-# 10) Save the trained Pipeline
-from joblib import dump
-dump(model, "kc_price_model.joblib")
-print("Saved kc_price_model.joblib")
-
-# 11) Spatial cross-validation with BlockKFold (lon/lat in degrees)
+from xgboost import XGBRegressor
 import numpy as np
 import verde as vd
-from sklearn.model_selection import cross_val_score
+from joblib import dump
 
-coords = np.c_[df["long"].values, df["lat"].values]  # 2 columns: [lon, lat]
-cv = vd.BlockKFold(spacing=0.2, n_splits=5, shuffle=True, random_state=42)  # smaller spacing => more blocks
+from features import build_feature_frame, NUMERIC_FEATURE_COLUMNS
 
-scores = cross_val_score(
-    model,
-    X, y,
-    cv=cv.split(coords),                 # folds from coordinates
-    scoring="neg_root_mean_squared_error"
-)
-print("Spatial-CV RMSE:", -scores.mean(), "+/-", scores.std())
+
+def build_model() -> Pipeline:
+    pre = ColumnTransformer(
+        transformers=[("num", StandardScaler(), NUMERIC_FEATURE_COLUMNS)],
+        remainder="drop",
+    )
+    model = Pipeline(
+        steps=[
+            ("pre", pre),
+            (
+                "xgb",
+                XGBRegressor(
+                    n_estimators=600,
+                    learning_rate=0.05,
+                    max_depth=6,
+                    subsample=0.8,
+                    colsample_bytree=0.8,
+                    random_state=42,
+                    tree_method="hist",
+                ),
+            ),
+        ]
+    )
+    return model
+
+
+def train(csv_path: Path = Path("kc_house_data.csv")) -> Tuple[Pipeline, float, float]:
+    df_raw = pd.read_csv(csv_path)
+    X = build_feature_frame(df_raw)
+    y = df_raw["price"].copy()
+
+    model = build_model()
+
+    X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=42)
+    model.fit(X_tr, y_tr)
+    preds = model.predict(X_te)
+
+    try:
+        from sklearn.metrics import root_mean_squared_error
+
+        rmse = root_mean_squared_error(y_te, preds)
+    except Exception:
+        from sklearn.metrics import mean_squared_error
+
+        rmse = np.sqrt(mean_squared_error(y_te, preds))
+    mae = mean_absolute_error(y_te, preds)
+
+    # Spatial CV across lon/lat degrees (BlockKFold)
+    coords = np.c_[df_raw["long"].values, df_raw["lat"].values]
+    cv = vd.BlockKFold(spacing=0.2, n_splits=5, shuffle=True, random_state=42)
+    scores = cross_val_score(
+        model, X, y, cv=cv.split(coords), scoring="neg_root_mean_squared_error"
+    )
+    print("Spatial-CV RMSE:", -scores.mean(), "+/-", scores.std())
+
+    dump(model, "kc_price_model.joblib")
+    print("Saved kc_price_model.joblib")
+
+    return model, mae, rmse
+
+
+if __name__ == "__main__":
+    _, mae, rmse = train()
+    print(f"MAE: {mae:.3f} | RMSE: {rmse:.3f}")
 
