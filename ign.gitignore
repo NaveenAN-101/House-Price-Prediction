@@ -1,0 +1,9 @@
+# Model files
+*.joblib
+*.pkl
+
+# Output/prediction files
+predictions_*.csv
+
+# Data (optional — only ignore if data is large or external)
+# kc_new_listings.csv
